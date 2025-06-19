@@ -1,0 +1,241 @@
+zabbix_export:
+  version: '7.2'
+  template_groups:
+    - uuid: a571c0d144b14fd4a87a9d9b2aa9fcd6
+      name: Templates/Applications
+  templates:
+    - uuid: e406021b1c1c4b8bb71768ea82a9b1e3
+      template: 'Twingate Connector through API'
+      name: 'Twingate Connector through API'
+      description: |
+        For adding one twingate connector and monitor uptime, availability, etc, throuhg the API.
+        
+        Also includes a check that sees if the twingate service is started on your connector machine. To enable, make sure you add the line below to /etc/zabbix/zabbix_agent2.conf
+        
+        UserParameter=service.status[*],systemctl is-active $1 >/dev/null 2>&1 && echo 1 || echo 0
+      groups:
+        - name: Templates/Applications
+      items:
+        - uuid: ece9a53b073847e5b53747382658a5e9
+          name: 'Twingate Connector service status'
+          type: ZABBIX_ACTIVE
+          key: 'service.status[twingate-connector]'
+          trends: '0'
+          valuemap:
+            name: '0 = stopped, 1 = running'
+          tags:
+            - tag: component
+              value: service
+        - uuid: 327657ac1877430ab5aa409b23d7a9bd
+          name: 'Twingate Connector Heartbeat Age'
+          type: DEPENDENT
+          key: twingate.connector.heartbeat.age
+          units: s
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.data.connector.lastHeartbeatAt
+            - type: JAVASCRIPT
+              parameters:
+                - |
+                  var now = new Date();
+                  var heartbeat = new Date(value);
+                  return Math.floor((now - heartbeat) / 1000);
+          master_item:
+            key: twingate.connector.status.raw
+          tags:
+            - tag: service
+              value: twingate
+          triggers:
+            - uuid: b53fd55d5c2b43418a49b2b23e882645
+              expression: 'last(/Twingate Connector through API/twingate.connector.heartbeat.age)>=120'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'last(/Twingate Connector through API/twingate.connector.heartbeat.age)<=120'
+              name: 'Twingate Connector {HOST.NAME} heartbeat delayed ({ITEM.LASTVALUE})'
+              priority: WARNING
+              manual_close: 'YES'
+            - uuid: c8096b96556f4fad9cb6f47f7745e679
+              expression: 'last(/Twingate Connector through API/twingate.connector.heartbeat.age)>300'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'last(/Twingate Connector through API/twingate.connector.heartbeat.age)<=300'
+              name: 'Twingate Connector {HOST.NAME} heartbeat is {ITEM.LASTVALUE} seconds old'
+              priority: HIGH
+              manual_close: 'YES'
+        - uuid: 1c32ccd0e65c4fc48d224124c3945e04
+          name: 'Twingate Connector Hostname'
+          type: DEPENDENT
+          key: twingate.connector.hostname
+          value_type: CHAR
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.data.connector.hostname
+          master_item:
+            key: twingate.connector.status.raw
+          tags:
+            - tag: service
+              value: twingate
+        - uuid: 724f13a92060459aa9e88aaabdfecee6
+          name: 'Twingate Connector Name'
+          type: DEPENDENT
+          key: twingate.connector.name
+          value_type: CHAR
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.data.connector.name
+          master_item:
+            key: twingate.connector.status.raw
+          tags:
+            - tag: service
+              value: twingate
+        - uuid: a974a048b5fa45128d994ae3d8826ba4
+          name: 'Twingate Remote Network Active'
+          type: DEPENDENT
+          key: twingate.connector.network.active
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.data.connector.remoteNetwork.isActive
+            - type: BOOL_TO_DECIMAL
+          master_item:
+            key: twingate.connector.status.raw
+          tags:
+            - tag: service
+              value: twingate
+          triggers:
+            - uuid: 582c7df267fa4cd091a5d038d69a1628
+              expression: 'last(/Twingate Connector through API/twingate.connector.network.active)=0'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'last(/Twingate Connector through API/twingate.connector.network.active)=1'
+              name: 'Twingate Remote Network {ITEM.LASTVALUE1} is inactive for {HOST.NAME}'
+              priority: WARNING
+              manual_close: 'YES'
+        - uuid: 150ad39f05684734ace73be51633b864
+          name: 'Twingate Remote Network Name'
+          type: DEPENDENT
+          key: twingate.connector.network.name
+          value_type: CHAR
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.data.connector.remoteNetwork.name
+          master_item:
+            key: twingate.connector.status.raw
+          tags:
+            - tag: service
+              value: twingate
+        - uuid: 94302112a7694b9da6a935fe10ef14ff
+          name: 'Twingate Connector Status Notifications'
+          type: DEPENDENT
+          key: twingate.connector.notifications
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.data.connector.hasStatusNotificationsEnabled
+            - type: BOOL_TO_DECIMAL
+          master_item:
+            key: twingate.connector.status.raw
+          tags:
+            - tag: service
+              value: twingate
+        - uuid: e152c4b45d534c24951261cc41d11c79
+          name: 'Twingate Connector Private IP'
+          type: DEPENDENT
+          key: twingate.connector.private.ip
+          value_type: CHAR
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - '$.data.connector.privateIPs[0]'
+          master_item:
+            key: twingate.connector.status.raw
+          tags:
+            - tag: service
+              value: twingate
+        - uuid: 4dd910e05cba4d0f9955ad07c08c00bf
+          name: 'Twingate Connector Public IP'
+          type: DEPENDENT
+          key: twingate.connector.public.ip
+          value_type: CHAR
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.data.connector.publicIP
+          master_item:
+            key: twingate.connector.status.raw
+          tags:
+            - tag: service
+              value: twingate
+        - uuid: 3b0eeb371ec84306aebceb69f1330394
+          name: 'Twingate Connector State'
+          type: DEPENDENT
+          key: twingate.connector.state
+          value_type: CHAR
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.data.connector.state
+          master_item:
+            key: twingate.connector.status.raw
+          tags:
+            - tag: service
+              value: twingate
+          triggers:
+            - uuid: 0b58a6c366634fd292be340627af4dd4
+              expression: 'last(/Twingate Connector through API/twingate.connector.state)<>"ALIVE"'
+              recovery_mode: RECOVERY_EXPRESSION
+              recovery_expression: 'last(/Twingate Connector through API/twingate.connector.state)="ALIVE"'
+              name: 'Twingate Connector {HOST.NAME} is offline'
+              priority: HIGH
+              manual_close: 'YES'
+        - uuid: 3cd694dc06d0447498b79d31e28ba46b
+          name: 'Twingate Connector Status Raw'
+          type: HTTP_AGENT
+          key: twingate.connector.status.raw
+          value_type: TEXT
+          url: '{$TWINGATE.API.URL}'
+          post_type: JSON
+          posts: '{"query":"query{connector(id:\"{$TWINGATE.CONNECTOR.ID}\"){id name state lastHeartbeatAt hostname publicIP privateIPs version hasStatusNotificationsEnabled createdAt updatedAt remoteNetwork{id name networkType location isActive}}}"}'
+          headers:
+            - name: X-API-KEY
+              value: '{$TWINGATE.API.TOKEN}'
+            - name: Content-Type
+              value: application/json
+          request_method: POST
+          tags:
+            - tag: service
+              value: twingate
+        - uuid: 0a02124710fd4ec5b2d6f6c8aa37f38e
+          name: 'Twingate Connector Version'
+          type: DEPENDENT
+          key: twingate.connector.version
+          value_type: CHAR
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.data.connector.version
+          master_item:
+            key: twingate.connector.status.raw
+          tags:
+            - tag: service
+              value: twingate
+      tags:
+        - tag: service
+          value: Twingate
+      macros:
+        - macro: '{$TWINGATE.API.TOKEN}'
+          type: SECRET_TEXT
+          description: 'Read permissons only needed'
+        - macro: '{$TWINGATE.API.URL}'
+          description: 'https://x.twingate.com/'
+        - macro: '{$TWINGATE.CONNECTOR.ID}'
+          description: 'This is the string after /connectors/ when you browse to it in the Twingate portal'
+      valuemaps:
+        - uuid: 9a24519fb1cb425d815de6b37a04589d
+          name: '0 = stopped, 1 = running'
+          mappings:
+            - value: '0'
+              newvalue: stopped
+            - value: '1'
+              newvalue: running
